@@ -1,0 +1,9 @@
+# Folders to ignore
+.idea/
+*.egg-info/
+**/build/
+**/.ipynb_checkpoints/
+**/__pycache__/
+
+# Filetypes to ignore
+*.pyc
