@@ -191,6 +191,9 @@ class Mhc1PredictorPwm(Mhc1Predictor):
         """Returns the data frame with the ranks of the peptides for the allele
         If not present, returns None."""
 
+        if allele.startswith("HLA-"):
+            allele = allele[4:]
+
         csv_file_path = os.path.join(
             self.data_dir_path, 
             "ranks",
