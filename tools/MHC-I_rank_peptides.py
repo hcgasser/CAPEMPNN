@@ -16,6 +16,7 @@ from kit.path import join
 from kit.log import setup_logger
 from kit.bioinf import generate_random_aa_seq, AA1_STD, N_AA_STD, AA1_TO_IDX
 from kit.bioinf.immuno.mhc_1 import Mhc1Predictor
+from kit.bioinf.immuno.mhc_1._pwm import Mhc1PredictorPwm
 from kit.bioinf.immuno.utils import get_mhc_1_setup_hash
 from kit.data import str_to_file, file_to_str
 from kit.bioinf.pwm import count_amino_acid_occurrences, calc_PWMs, save_PWMs
@@ -59,7 +60,7 @@ def get_percentiles(peptides, scores, percentiles, length):
     return df_percentiles
 
 
-def process_presented_peptides(allele, df_ranks, lengths, limit_rank, folder):
+def process_presented_peptides(allele, df_ranks, lengths, limit_rank, folder, generate_percentiles=True):
     percentiles = [99.9, 99.5, 99.0, 98.0, 97.5, 95.0, 90.0, 75.0, 50.0]
     allele_for_path = allele.replace("*", "_")
 
@@ -92,72 +93,73 @@ def process_presented_peptides(allele, df_ranks, lengths, limit_rank, folder):
     allele_scores = {"peptide": peptides, f"{allele}_score": scores}
     df_ranks = df_ranks.join(pd.DataFrame(allele_scores).set_index("peptide"))
 
-    # generate percentiles
-    for length in lengths:
-        df_percentiles = get_percentiles(peptides, scores, percentiles, length)
-        df_percentiles.rename(columns={'value': allele}, inplace=True)
+    if generate_percentiles:
+        # generate percentiles
+        for length in lengths:
+            df_percentiles = get_percentiles(peptides, scores, percentiles, length)
+            df_percentiles.rename(columns={'value': allele}, inplace=True)
 
-        df_recall = pd.DataFrame(
-            index=[f"recall_{p}" for p in percentiles],
-            columns=[allele],
-        )
-        df_precision = pd.DataFrame(
-            index=[f"precision_{p}" for p in percentiles],
-            columns=[allele],
-        )
-        df_F1 = pd.DataFrame(
-            index=[f"F1_{p}" for p in percentiles],
-            columns=[allele],
-        )
-        for p in percentiles:
-            score = df_percentiles.loc[f"pc_{p}", allele]
-            true_positives = df_ranks.query(
-                f"`{allele}_score` > {score} "
-                f"and `{allele}` <= {limit_rank} "
-                f"and length == {length} "
-            ).shape[0]
-            false_negatives = df_ranks.query(
-                f"`{allele}_score` <= {score} "
-                f"and `{allele}` <= {limit_rank} "
-                f"and length == {length} "
-            ).shape[0]
-            false_positives = df_ranks.query(
-                f"`{allele}_score` > {score} "
-                f"and `{allele}` > {limit_rank} "
-                f"and length == {length} "
-            ).shape[0]
-
-            # calculate recall vs the principal classifier
-            df_recall.loc[f"recall_{p}", allele] = (
-                true_positives / (true_positives + false_negatives)
-                if (true_positives + false_negatives) > 0
-                else None
+            df_recall = pd.DataFrame(
+                index=[f"recall_{p}" for p in percentiles],
+                columns=[allele],
             )
-
-            # calculate precision vs the principal classifier
-            df_precision.loc[f"precision_{p}", allele] = (
-                true_positives / (true_positives + false_positives)
-                if (true_positives + false_positives) > 0
-                else None
+            df_precision = pd.DataFrame(
+                index=[f"precision_{p}" for p in percentiles],
+                columns=[allele],
             )
-
-            # calculate F1 vs the principal classifier
-            df_F1.loc[f"F1_{p}", allele] = (
-                true_positives
-                / (true_positives + 0.5 * (false_positives + false_negatives))
-                if (true_positives + 0.5 * (false_positives + false_negatives))
-                > 0
-                else None
+            df_F1 = pd.DataFrame(
+                index=[f"F1_{p}" for p in percentiles],
+                columns=[allele],
             )
+            for p in percentiles:
+                score = df_percentiles.loc[f"pc_{p}", allele]
+                true_positives = df_ranks.query(
+                    f"`{allele}_score` > {score} "
+                    f"and `{allele}` <= {limit_rank} "
+                    f"and length == {length} "
+                ).shape[0]
+                false_negatives = df_ranks.query(
+                    f"`{allele}_score` <= {score} "
+                    f"and `{allele}` <= {limit_rank} "
+                    f"and length == {length} "
+                ).shape[0]
+                false_positives = df_ranks.query(
+                    f"`{allele}_score` > {score} "
+                    f"and `{allele}` > {limit_rank} "
+                    f"and length == {length} "
+                ).shape[0]
 
-        pd.concat([df_percentiles, df_recall, df_precision, df_F1]).to_csv(
-            os.path.join(
-                folder,
-                "pwm",
-                allele_for_path,
-                f"pc-{allele.replace('*', '_')}-{limit_rank}-{length}.csv",
+                # calculate recall vs the principal classifier
+                df_recall.loc[f"recall_{p}", allele] = (
+                    true_positives / (true_positives + false_negatives)
+                    if (true_positives + false_negatives) > 0
+                    else None
+                )
+
+                # calculate precision vs the principal classifier
+                df_precision.loc[f"precision_{p}", allele] = (
+                    true_positives / (true_positives + false_positives)
+                    if (true_positives + false_positives) > 0
+                    else None
+                )
+
+                # calculate F1 vs the principal classifier
+                df_F1.loc[f"F1_{p}", allele] = (
+                    true_positives
+                    / (true_positives + 0.5 * (false_positives + false_negatives))
+                    if (true_positives + 0.5 * (false_positives + false_negatives))
+                    > 0
+                    else None
+                )
+
+            pd.concat([df_percentiles, df_recall, df_precision, df_F1]).to_csv(
+                os.path.join(
+                    folder,
+                    "pwm",
+                    allele_for_path,
+                    f"pc-{allele.replace('*', '_')}-{limit_rank}-{length}.csv",
+                )
             )
-        )
     
 
 
@@ -249,27 +251,39 @@ def main(_args):
             str_to_file(f"{allele}\n", finished_alleles_file_path, append=True)
 
     if "agg" in tasks:
-        # load all allele ranks
-        for allele in alleles:
-            allele_for_path = allele.replace("*", "_")
-            allele_rank_file_path = join(folder, "ranks",f"{allele_for_path}.csv")
-            if allele not in df_ranks:
-                df = pd.read_csv(allele_rank_file_path).set_index(
-                    "peptide"
-                )
-                df_ranks = df_ranks.join(df, how="left")
-
-        # get the name for the new setup
         mhc_1_setup_hash = get_mhc_1_setup_hash(alleles)
-        # check if all peptides are present
-        assert set(df_ranks.index) == set(random_peptides)
+        predictor_pwm = Mhc1PredictorPwm(data_dir_path=folder, limit=limit_rank)
+        predictor_pwm.load_agg_ranks(mhc_1_setup_hash, alleles)
+        peptides_presented = predictor_pwm.get_presented_any(mhc_1_setup_hash)
+        counts = count_amino_acid_occurrences(peptides_presented)
+        predictor_pwm.calc_PWMs(mhc_1_setup_hash, counts)
+        predictor_pwm.save_PWMs(mhc_1_setup_hash)
+        percentile_statistics = predictor_pwm.calc_percentile_statistics(mhc_1_setup_hash)
+        predictor_pwm.save_percentile_statistics(mhc_1_setup_hash, percentile_statistics)
 
-        df_ranks[mhc_1_setup_hash] = df_ranks.apply(
-            lambda row: np.min([row[_allele] for _allele in alleles]),
-            axis=1
-        )
+        # # load all allele ranks
+        # for allele in alleles:
+        #     allele_for_path = allele.replace("*", "_")
+        #     allele_rank_file_path = join(folder, "ranks",f"{allele_for_path}.csv")
+        #     if allele not in df_ranks:
+        #         df = pd.read_csv(allele_rank_file_path).set_index(
+        #             "peptide"
+        #         )
+        #         df_ranks = df_ranks.join(df, how="left")
 
-        process_presented_peptides(mhc_1_setup_hash, df_ranks, lengths, limit_rank, folder)
+        # # get the name for the new setup
+        
+        # # check if all peptides are present
+        # assert set(df_ranks.index) == set(random_peptides)
+
+        # df_ranks[mhc_1_setup_hash] = df_ranks.apply(
+        #     lambda row: np.min([row[_allele] for _allele in alleles]),
+        #     axis=1
+        # )
+
+        # process_presented_peptides(mhc_1_setup_hash, df_ranks, lengths, limit_rank, folder)
+
+
 
                 
 

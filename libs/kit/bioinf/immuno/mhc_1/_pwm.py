@@ -329,8 +329,8 @@ class Mhc1PredictorPwm(Mhc1Predictor):
     def calc_percentile_statistics(self, name):
         self.get_presented_any(name)
         df_presented = self.presented_any[name]
-        percentile_statistics = {}
 
+        percentile_statistics = {}
         if 'length' not in df_presented.columns:
             df_presented['length'] = df_presented.apply(lambda x: len(x.name), axis=1)
 
