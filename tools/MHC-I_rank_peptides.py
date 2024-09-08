@@ -163,7 +163,7 @@ def main(_args):
             PWMs[allele], PWMs_log[allele] = _pwms, _log_pwms
 
             # save the produced PWMs
-            save_PWMs(allele, PWMs, PWMs_log, folder)
+            save_PWMs(allele, PWMs[allele], PWMs_log[allele], folder)
 
             # score all random peptides with the log pwm
             scores = score_peptides(peptides, PWMs_log[allele])
