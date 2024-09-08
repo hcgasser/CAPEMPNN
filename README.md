@@ -16,7 +16,20 @@ Therefore, computational methods modifying proteins' immunogenicity are needed.
 We apply DPO on **ProteinMPNN** to tune it to incorporate less MHC Class I epitopes into its generations.
 The new **ProteinMPNN** weights generated this way, we call **CAPE-MPNN**.
 
-## DPO hyperparameter search
+
+### Installation
+
+#### General Requirements
+- The programs in this repository require a Linux machine
+- Colabfold needs to be installed (https://github.com/sokrypton/ColabFold)
+
+#### Clone the repository
+- Clone repository to local machine: ``git clone https://github.com/hcgasser/CAPE_MPNN.git``
+- Make environmental variable pointing to the repo folder: ``export CAPE=<path of repo folder>``
+- add ``CAPE`` to ``.bashrc`` file: ``echo "export CAPE=${CAPE}" >> ~/.bashrc``
+
+
+### DPO hyperparameter search
 
 ```shell 
 cd $PF
@@ -25,6 +38,6 @@ export HOSTNAME='workstation'
 cape-mpnn.py --hyp ${PF}/configs/CAPE-MPNN/hyp/hyp_b69bb1.yaml --hyp_n 20
 ```
 
-## Eval
+### Eval
 
 The evaluation jupyter notebook can be found in ``CAPE-Eval/cape-eval_mpnn.ipynb``
