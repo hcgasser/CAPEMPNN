@@ -80,8 +80,8 @@ class Mhc1PredictorNetMhcPan(Mhc1Predictor):
         if allele in Mhc1PredictorNetMhcPan.resolved_alleles:
             return Mhc1PredictorNetMhcPan.resolved_alleles[allele]
         
-        definition_file_path = os.path.join(self.data_dir_path, "definitions", f"{allele}_definition.csv")
-        if os.path.exists(definition_file_path):
+        if self.data_dir_path is not None \
+         and os.path.exists(definition_file_path := os.path.join(self.data_dir_path, "definitions", f"{allele}_definition.csv")):
             df = pd.read_csv(definition_file_path)
             result = [f"HLA-{a}" for a in df.allele]
         else:
