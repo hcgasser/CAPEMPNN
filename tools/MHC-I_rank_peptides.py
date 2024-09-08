@@ -59,9 +59,19 @@ def get_percentiles(peptides, scores, percentiles, length):
     return df_percentiles
 
 
-def process_presented_peptides(allele, peptides, peptides_presented, lengths, limit_rank, folder):
+def process_presented_peptides(allele, df_ranks, lengths, limit_rank, folder):
     percentiles = [99.9, 99.5, 99.0, 98.0, 97.5, 95.0, 90.0, 75.0, 50.0]
     allele_for_path = allele.replace("*", "_")
+
+    # get presented peptides
+    peptides = list(df_ranks.index)
+    peptides_presented = []
+    for peptide, row in tqdm(
+        df_ranks.iterrows(), "get presented peptides", leave=False
+    ):
+        if row[allele] <= limit_rank:
+            peptides_presented.append(peptide)   
+
 
     counts = {}
     PWMs = {}
@@ -235,35 +245,31 @@ def main(_args):
                 )
                 df_ranks = df_ranks.join(df, how="left")
 
-            # get presented peptides
-            peptides = list(df_ranks.index)
-            peptides_presented = []
-            for peptide, row in tqdm(
-                df_ranks.iterrows(), "get presented peptides", leave=False
-            ):
-                if row[allele] <= limit_rank:
-                    peptides_presented.append(peptide)          
-
-            process_presented_peptides(allele, peptides, peptides_presented, lengths, limit_rank, folder)
+            process_presented_peptides(allele, df_ranks, lengths, limit_rank, folder)
             str_to_file(f"{allele}\n", finished_alleles_file_path, append=True)
 
     if "agg" in tasks:
-        mhc_1_setup_hash = get_mhc_1_setup_hash(alleles)
-        peptides_file_path = os.path.join(folder, "random_peptides.txt")
-        peptides = set(file_to_str(peptides_file_path).split("\n"))
-        peptides_presented = defaultdict(lambda: [])
+        # load all allele ranks
         for allele in alleles:
-            allele_file_name = f"{allele.replace('*', '_')}.csv"
-            rank_file_path = join(folder, "ranks", allele_file_name)
-            assert os.path.exists(rank_file_path)
-            df = pd.read_csv(rank_file_path).drop_duplicates().set_index("peptide")
-            assert set(df.index) == peptides
-            df = df.rename(columns={allele: "rank"})
+            allele_for_path = allele.replace("*", "_")
+            allele_rank_file_path = join(folder, "ranks",f"{allele_for_path}.csv")
+            if allele not in df_ranks:
+                df = pd.read_csv(allele_rank_file_path).set_index(
+                    "peptide"
+                )
+                df_ranks = df_ranks.join(df, how="left")
 
-            for peptide in df.query(f"rank <= {limit_rank}").index:
-                peptides_presented[peptide].append(allele)
+        # get the name for the new setup
+        mhc_1_setup_hash = get_mhc_1_setup_hash(alleles)
+        # check if all peptides are present
+        assert set(df_ranks.index) == set(random_peptides)
 
-        process_presented_peptides(mhc_1_setup_hash, peptides, peptides_presented, lengths, limit_rank, folder)
+        df_ranks[mhc_1_setup_hash] = df_ranks.apply(
+            lambda row: np.min([row[_allele] for _allele in alleles]),
+            axis=1
+        )
+
+        process_presented_peptides(mhc_1_setup_hash, df_ranks, lengths, limit_rank, folder)
 
                 
 
