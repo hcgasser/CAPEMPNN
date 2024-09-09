@@ -62,6 +62,10 @@ Then we set the MHC-I alleles to deimmunize against
 
 ### DPO hyperparameter search
 
+The file ``${PF}/configs/CAPE-MPNN/hyp/hyp_b69bb1.yaml`` specifies the hyperparameter ranges from which to sample.
+In particular the parameters *batch_size* and *max_protein_length* (both in residues) are important as too large values will lead to GPU memory overflows.
+The parameter **hyp_n** specifies the number for different models to train.
+
 ```shell 
 export HOSTNAME='workstation'
 cape-mpnn.py --hyp ${PF}/configs/CAPE-MPNN/hyp/hyp_b69bb1.yaml --hyp_n 20
